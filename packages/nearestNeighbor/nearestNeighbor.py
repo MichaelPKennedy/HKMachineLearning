@@ -14,7 +14,6 @@ knn.fit(X)
 
 load_dotenv()
 
-# Database configuration
 db_config = {
     "host": os.getenv("host"),
     "user": os.getenv("username"),
@@ -24,7 +23,6 @@ db_config = {
 }
 
 
-# Create database engine
 database_url = f"mysql+pymysql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}"
 engine = create_engine(database_url)
 
