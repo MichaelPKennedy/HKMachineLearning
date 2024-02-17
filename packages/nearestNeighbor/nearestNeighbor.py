@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 combined_df = pd.read_pickle("AllDataFrames.pkl")
 
-X = combined_df.drop('city_id', axis=1)  # Features matrix
+X = combined_df.drop('city_id', axis=1)
 knn = NearestNeighbors(n_neighbors=50)
 knn.fit(X)
 
@@ -29,13 +29,24 @@ database_url = f"mysql+pymysql://{db_config['user']}:{db_config['password']}@{db
 engine = create_engine(database_url)
 
 
+def update_recommendations():
+    """
+    HTTP Cloud Function that is triggered by HTTP request google scheduler job
+    """
+    try:
+        update_user_recommendations_with_transaction(engine, combined_df, knn)
+        return 'Update process completed successfully.', 200
+    except Exception as e:
+        # print(f"An error occurred: {e}")
+        return 'Update process failed.', 500
+
+
 def find_similar_cities(saved_city_ids, combined_df, knn_model):
     # Calculate the mean of the features of the saved cities
     saved_cities = combined_df[combined_df['city_id'].isin(saved_city_ids)]
     query_point = saved_cities.drop('city_id', axis=1).mean().to_frame().T
     # Use the KNN model to find the indices of the nearest neighbors
     distances, indices = knn_model.kneighbors(query_point, n_neighbors=50 + len(saved_city_ids))
-    # Retrieve the city_ids of the recommended cities
     all_recommended_city_ids = combined_df.iloc[indices[0]]['city_id'].values
     # Exclude the saved city_ids from the recommendations
     recommended_city_ids = [city_id for city_id in all_recommended_city_ids if city_id not in saved_city_ids][:50]
@@ -55,7 +66,6 @@ def update_user_recommendations_with_transaction(engine, combined_df, knn):
 
             # Pass parameters in a dictionary
             users = connection.execute(fetch_users_sql, {'one_hour_ago': one_hour_ago}).fetchall()
-            print(users)
             for user in users:
                 user_id = user[0]
 
@@ -71,7 +81,6 @@ def update_user_recommendations_with_transaction(engine, combined_df, knn):
                     continue
 
                 recommended_city_ids = find_similar_cities(saved_city_ids, combined_df, knn)
-                print(recommended_city_ids)
 
                 delete_recommendations_sql = text("""
                     DELETE FROM UserRecommendedCities
@@ -93,6 +102,3 @@ def update_user_recommendations_with_transaction(engine, combined_df, knn):
         except SQLAlchemyError as e:
             trans.rollback()
             raise e
-
-
-update_user_recommendations_with_transaction(engine, combined_df, knn)
