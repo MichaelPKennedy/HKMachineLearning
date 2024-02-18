@@ -42,12 +42,21 @@ def update_recommendations():
 def find_similar_cities(saved_city_ids, combined_df, knn_model):
     # Calculate the mean of the features of the saved cities
     saved_cities = combined_df[combined_df['city_id'].isin(saved_city_ids)]
-    query_point = saved_cities.drop('city_id', axis=1).mean().to_frame().T
+    query_point = saved_cities.drop(['city_id', 'area_code'], axis=1).mean().to_frame().T
     # Use the KNN model to find the indices of the nearest neighbors
-    distances, indices = knn_model.kneighbors(query_point, n_neighbors=50 + len(saved_city_ids))
-    all_recommended_city_ids = combined_df.iloc[indices[0]]['city_id'].values
-    # Exclude the saved city_ids from the recommendations
-    recommended_city_ids = [city_id for city_id in all_recommended_city_ids if city_id not in saved_city_ids][:50]
+    distances, indices = knn_model.kneighbors(query_point, n_neighbors=200)
+    recommended_cities = combined_df.iloc[indices[0]]
+
+    unique_area_codes = set()
+    recommended_city_ids = []
+
+    for _, row in recommended_cities.iterrows():
+        if row['area_code'] not in unique_area_codes and row['city_id'] not in saved_city_ids:
+            unique_area_codes.add(row['area_code'])
+            recommended_city_ids.append(row['city_id'])
+        if len(recommended_city_ids) == 50:
+            break
+
     return recommended_city_ids
 
 
