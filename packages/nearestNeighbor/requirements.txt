@@ -1,5 +1,7 @@
 pandas
-scikit-learn
 SQLAlchemy
 PyMySQL
 python-dotenv
+datetime
+os
+functions_framework

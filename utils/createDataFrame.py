@@ -18,11 +18,11 @@ engine = create_engine(database_url)
 
 
 queries = {
-    "ML_Demographics": "SELECT d.*, c.area_code FROM ML_Demographics d JOIN City c ON d.city_id = c.city_id WHERE d.population IS NOT NULL",
+    "ML_Demographics": "SELECT *  FROM ML_Demographics WHERE population IS NOT NULL",
     "ML_Housing": "SELECT * FROM ML_Housing WHERE rent_price IS NOT NULL AND home_price IS NOT NULL",
     "ML_Industry": "SELECT * FROM ML_Industry",
     "ML_RecreationAndScenery": "SELECT * FROM ML_RecreationAndScenery",
-    "ML_Weather": "SELECT * FROM ML_Weather",
+    "ML_Weather": "SELECT city_id, yearly_avg_temp_norm, temp_variance_norm, avg_humidity FROM ML_Weather",
 }
 
 dataframes = {name: pd.read_sql_query(query, engine) for name, query in queries.items()}
@@ -32,7 +32,7 @@ for name, df in dataframes.items():
     if name != 'ML_Demographics': 
         combined_df = combined_df.merge(df, on='city_id', how='inner')
 
-# combined_df.to_pickle('AllDataFrames.pkl')
+combined_df.to_pickle('AllDataFrames.pkl')
 
-combined_df.to_csv('combined_data.csv', index=False)
+# combined_df.to_csv('combined_data.csv', index=False)
 

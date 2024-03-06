@@ -1,19 +1,19 @@
-import pandas as pd
 import os
-from sklearn.neighbors import NearestNeighbors
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
+import functions_framework
 
-combined_df = pd.read_pickle("AllDataFrames.pkl")
+from joblib import load
 
-X = combined_df.drop('city_id', axis=1)
-knn = NearestNeighbors(n_neighbors=50)
-knn.fit(X)
+# Load the trained model 
+knn = load('knn_model.joblib')
+combined_df = load('combined_df.joblib')
 
 load_dotenv()
 
+# Database configuration
 db_config = {
     "host": os.getenv("host"),
     "user": os.getenv("username"),
@@ -23,11 +23,12 @@ db_config = {
 }
 
 
+# Create database engine
 database_url = f"mysql+pymysql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}"
 engine = create_engine(database_url)
 
-
-def update_recommendations():
+@functions_framework.http
+def update_recommendations(request):
     """
     HTTP Cloud Function that is triggered by HTTP request google scheduler job
     """
@@ -42,21 +43,14 @@ def update_recommendations():
 def find_similar_cities(saved_city_ids, combined_df, knn_model):
     # Calculate the mean of the features of the saved cities
     saved_cities = combined_df[combined_df['city_id'].isin(saved_city_ids)]
-    query_point = saved_cities.drop(['city_id', 'area_code'], axis=1).mean().to_frame().T
+    query_point = saved_cities.drop('city_id', axis=1).mean().to_frame().T
     # Use the KNN model to find the indices of the nearest neighbors
-    distances, indices = knn_model.kneighbors(query_point, n_neighbors=200)
-    recommended_cities = combined_df.iloc[indices[0]]
-
-    unique_area_codes = set()
-    recommended_city_ids = []
-
-    for _, row in recommended_cities.iterrows():
-        if row['area_code'] not in unique_area_codes and row['city_id'] not in saved_city_ids:
-            unique_area_codes.add(row['area_code'])
-            recommended_city_ids.append(row['city_id'])
-        if len(recommended_city_ids) == 50:
-            break
-
+    distances, indices = knn_model.kneighbors(query_point, n_neighbors=50 + len(saved_city_ids))
+    # Retrieve the city_ids of the recommended cities
+    all_recommended_city_ids = combined_df.iloc[indices[0]]['city_id'].values
+    # Exclude the saved city_ids from the recommendations
+    recommended_city_ids = [city_id for city_id in all_recommended_city_ids if city_id not in saved_city_ids][:50]
+    print(recommended_city_ids)
     return recommended_city_ids
 
 
