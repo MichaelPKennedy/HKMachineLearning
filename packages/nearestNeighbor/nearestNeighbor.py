@@ -50,7 +50,7 @@ def find_similar_cities(saved_city_ids, combined_df, knn_model):
     all_recommended_city_ids = combined_df.iloc[indices[0]]['city_id'].values
     # Exclude the saved city_ids from the recommendations
     recommended_city_ids = [city_id for city_id in all_recommended_city_ids if city_id not in saved_city_ids][:50]
-    print(recommended_city_ids)
+
     return recommended_city_ids
 
 
