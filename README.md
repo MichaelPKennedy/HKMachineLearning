@@ -1,2 +1,2 @@
-# HKMachineLearning
-Machine Learning Model for HomeKnown App
+# HKCloudFunctions
+Machine Learning Models for HomeKnown App as well as other cloud function scheduled jobs.
