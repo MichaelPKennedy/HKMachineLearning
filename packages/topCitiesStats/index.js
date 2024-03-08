@@ -15,6 +15,8 @@ exports.updateTopCities = async (req, res) => {
   const connection = await mysql.createConnection(dbConfig);
   try {
     const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const formattedFirstDayOfMonth = firstDayOfMonth
       .toISOString()
@@ -50,13 +52,13 @@ exports.updateTopCities = async (req, res) => {
     await Promise.all(
       topMonthlyCities.map((city, index) =>
         connection.execute(
-          `INSERT INTO TopMonthlyCities (ranking, city_id, count, month) VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE city_id = ?, count = ?;`,
+          `INSERT INTO TopMonthlyCities (ranking, city_id, count, month, updatedAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON DUPLICATE KEY UPDATE city_id = ?, count = ?, updatedAt = CURRENT_TIMESTAMP;`,
           [
             index + 1,
             city.city_id,
             city.city_count,
-            formattedFirstDayOfMonth,
+            currentMonth,
             city.city_id,
             city.city_count,
           ]
@@ -67,8 +69,8 @@ exports.updateTopCities = async (req, res) => {
     await Promise.all(
       topCitiesAllTime.map((city, index) =>
         connection.execute(
-          `INSERT INTO TopCities (ranking, city_id, count) VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE city_id = ?, count = ?;`,
+          `INSERT INTO TopCities (ranking, city_id, count, updatedAt) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                 ON DUPLICATE KEY UPDATE city_id = ?, count = ?, updatedAt = CURRENT_TIMESTAMP;`,
           [
             index + 1,
             city.city_id,
