@@ -2,6 +2,7 @@ pandas
 SQLAlchemy
 PyMySQL
 python-dotenv
-datetime
-os
+joblib
 functions_framework
+scikit-learn
+google-cloud-storage

@@ -4,16 +4,39 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 import functions_framework
+from google.cloud import storage
+from joblib import load
 
 from joblib import load
 
-# Load the trained model 
-knn = load('knn_model.joblib')
-combined_df = load('combined_df.joblib')
+storage_client = storage.Client()
+
+def download_blob(bucket_name, source_blob_name, destination_file_name):
+    """Downloads a blob from the bucket."""
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(source_blob_name)
+    blob.download_to_filename(destination_file_name)
+
+def load_model_from_gcs():
+    """Loads the model and dataframe from Google Cloud Storage"""
+    bucket_name = os.getenv('GCS_BUCKET') 
+    model_blob_name = 'knn_model.joblib'
+    df_blob_name = 'combined_df.joblib'
+
+    # Temporary paths within the Cloud Function environment
+    model_temp_path = '/tmp/knn_model.joblib'
+    df_temp_path = '/tmp/combined_df.joblib'
+
+    download_blob(bucket_name, model_blob_name, model_temp_path)
+    download_blob(bucket_name, df_blob_name, df_temp_path)
+
+    knn_model = load(model_temp_path)
+    combined_df = load(df_temp_path)
+
+    return knn_model, combined_df
 
 load_dotenv()
 
-# Database configuration
 db_config = {
     "host": os.getenv("host"),
     "user": os.getenv("username"),
@@ -32,6 +55,9 @@ def update_recommendations(request):
     """
     HTTP Cloud Function that is triggered by HTTP request google scheduler job
     """
+    # Load model and dataframe from Google Cloud Storage
+    knn, combined_df = load_model_from_gcs()
+
     try:
         update_user_recommendations_with_transaction(engine, combined_df, knn)
         return 'Update process completed successfully.', 200
@@ -56,6 +82,7 @@ def find_similar_cities(saved_city_ids, combined_df, knn_model):
 
 def update_user_recommendations_with_transaction(engine, combined_df, knn):
     one_hour_ago = datetime.now() - timedelta(hours=1)
+    updated_users = []
 
     with engine.connect() as connection:
         trans = connection.begin()
@@ -67,8 +94,10 @@ def update_user_recommendations_with_transaction(engine, combined_df, knn):
 
             # Pass parameters in a dictionary
             users = connection.execute(fetch_users_sql, {'one_hour_ago': one_hour_ago}).fetchall()
+            print(f"Updating recommended locations for {len(users)} users")
             for user in users:
                 user_id = user[0]
+
 
                 fetch_saved_cities_sql = text("""
                     SELECT city_id FROM UserCities
@@ -98,8 +127,10 @@ def update_user_recommendations_with_transaction(engine, combined_df, knn):
                 """)
 
                 connection.execute(insert_statement, values_to_insert)
+                updated_users.append(user_id)
 
             trans.commit()
+            print("Updated Users", updated_users)
         except SQLAlchemyError as e:
             trans.rollback()
             raise e
