@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -74,101 +75,119 @@ def normalize_feature(value, min_val, max_val):
 
 def fetch_and_normalize_user_features(user_id, connection):
     """Fetch user features for a given user_id, apply manual normalization, and return as a tensor."""
-    fetch_user_features_sql = text("""
-        SELECT 
-            costOfLivingWeight, 
-            recreationWeight, 
-            weatherWeight, 
-            sceneryWeight, 
-            industryWeight, 
-            publicServicesWeight, 
-            crimeWeight, 
-            airQualityWeight, 
-            job1Salary, 
-            job2Salary, 
-            entertainment as user_interest_entertainment, 
-            foodAndDrinks as user_interest_foodAndDrinks, 
-            historyAndCulture as user_interest_historyAndCulture, 
-            beaches as user_interest_beaches, 
-            nature as user_interest_nature, 
-            winterSports as user_interest_winterSports, 
-            adventureAndSports as user_interest_adventureAndSports, 
-            wellness as user_interest_wellness, 
-            yearly_avg_temp_norm as user_yearly_avg_temp_norm, 
-            temp_variance_norm as user_temp_variance_norm, 
-            max_temp, 
-            min_temp, 
-            precipitation, 
-            snow, 
-            pop_min, 
-            pop_max, 
-            northeast, 
-            midwest, 
-            south, 
-            west, 
-            homeMin, 
-            homeMax, 
-            rentMin, 
-            rentMax, 
-            humidity
-        FROM UserSurveys
-        WHERE user_id = :user_id
-        ORDER BY createdAt DESC
-        LIMIT 1
-    """)
+    query = text("""
+    SELECT 
+        costOfLivingWeight, 
+        recreationWeight, 
+        weatherWeight, 
+        sceneryWeight, 
+        industryWeight, 
+        publicServicesWeight, 
+        crimeWeight, 
+        airQualityWeight, 
+        job1Salary, 
+        job2Salary, 
+        entertainment as user_interest_entertainment, 
+        foodAndDrinks as user_interest_foodAndDrinks, 
+        historyAndCulture as user_interest_historyAndCulture, 
+        beaches as user_interest_beaches, 
+        nature as user_interest_nature, 
+        winterSports as user_interest_winterSports, 
+        adventureAndSports as user_interest_adventureAndSports, 
+        wellness as user_interest_wellness, 
+        yearly_avg_temp_norm as user_yearly_avg_temp_norm, 
+        temp_variance_norm as user_temp_variance_norm, 
+        max_temp, 
+        min_temp, 
+        precipitation, 
+        snow, 
+        pop_min, 
+        pop_max, 
+        northeast, 
+        midwest, 
+        south, 
+        west, 
+        homeMin, 
+        homeMax, 
+        rentMin, 
+        rentMax, 
+        humidity 
+    FROM UserSurveys 
+    WHERE user_id = :user_id 
+    ORDER BY createdAt DESC 
+    LIMIT 1
+""")
     # TODO - Get the last 50 surveys, average the results, and then continue
-    
-    user_feature_row = connection.execute(fetch_user_features_sql, {'user_id': user_id}).fetchone()
-    if user_feature_row:
-        # Define min and max values for each feature based on your specifications
-        min_max_pairs = [
-            (0, 8),  # costOfLivingWeight
-            (0, 8),  # recreationWeight
-            (0, 8),  # weatherWeight
-            (0, 8),  # sceneryWeight
-            (0, 8),  # industryWeight
-            (0, 8),  # publicServicesWeight
-            (0, 8),  # crimeWeight
-            (0, 8),  # airQualityWeight
-            (0, 500000),  # job1Salary
-            (0, 500000),  # job2Salary
-            (0, 1),  # entertainment
-            (0, 1),  # foodAndDrinks
-            (0, 1),  # historyAndCulture
-            (0, 1),  # beaches
-            (0, 1),  # nature
-            (0, 1),  # winterSports
-            (0, 1),  # adventureAndSports
-            (0, 1),  # wellness
-            (0, 1),  # northeast
-            (0, 1),  # midwest
-            (0, 1),  # south
-            (0, 1),  # west
-            (0, 80),  # yearly_avg_temp_norm
-            (0, 100),  # temp_variance_norm
-            (0, 120),  # max_temp
-            (-30, 80),  # min_temp
-            (0, 50),  # precipitation
-            (0, 50),  # snow
-            (0, 1000001),  # pop_min
-            (0, 10000000),  # pop_max
-            (0, 1000000),  # homeMin
-            (0, 1000000),  # homeMax
-            (0, 5000),  # rentMin
-            (0, 5000),  # rentMax
-            (0, 100)  # humidity
-        ]
-        
-        # Normalize each feature
-        normalized_features = [
-            normalize_feature(value, min_val, max_val) 
-            for value, (min_val, max_val) in zip(user_feature_row, min_max_pairs)
-        ]
-        
-        user_features_tensor = torch.tensor([normalized_features], dtype=torch.float)
+
+    df_user_features = pd.read_sql_query(query, engine, params={'user_id': user_id})
+    if not df_user_features.empty:
+        # Predefined defaults for null values
+        predefined_defaults = {
+            'costOfLivingWeight': 0, 'recreationWeight': 0, 'weatherWeight': 0,
+            'sceneryWeight': 0, 'industryWeight': 0, 'publicServicesWeight': 0,
+            'crimeWeight': 0, 'airQualityWeight': 0, 'job1Salary': 50000,  # Default salary
+            'job2Salary': 50000, 'user_interest_entertainment': 0, 'user_interest_foodAndDrinks': 0,
+            'user_interest_historyAndCulture': 0, 'user_interest_beaches': 0, 'user_interest_nature': 0,
+            'user_interest_winterSports': 0, 'user_interest_adventureAndSports': 0, 'user_interest_wellness': 0,
+            'user_yearly_avg_temp_norm': 55, 'user_temp_variance_norm': 65, 'max_temp': 87,
+            'min_temp': 22, 'precipitation': 50, 'snow': 50,
+            'pop_min': 1, 'pop_max': 10000000, 'northeast': 0,
+            'midwest': 0, 'south': 0, 'west': 0, 'homeMin': 150000,
+            'homeMax': 600000, 'rentMin': 1200, 'rentMax': 1600, 'humidity': 66
+        }
+
+        # Apply defaults to null values
+        for column, default in predefined_defaults.items():
+            df_user_features[column].fillna(default)
+
+        # Apply normalization directly based on predefined ranges
+        normalization_ranges = {
+            'costOfLivingWeight': (0, 8),
+            'recreationWeight': (0, 8),
+            'weatherWeight': (0, 8),
+            'sceneryWeight': (0, 8),
+            'industryWeight': (0, 8),
+            'publicServicesWeight': (0, 8),
+            'crimeWeight': (0, 8),
+            'airQualityWeight': (0, 8),
+            'job1Salary': (0, 500000),  # Assuming this is the range for salary
+            'job2Salary': (0, 500000),  # Assuming same range as job1Salary
+            'user_interest_entertainment': (0, 1),  # Binary feature
+            'user_interest_foodAndDrinks': (0, 1),  # Binary feature
+            'user_interest_historyAndCulture': (0, 1),  # Binary feature
+            'user_interest_beaches': (0, 1),  # Binary feature
+            'user_interest_nature': (0, 1),  # Binary feature
+            'user_interest_winterSports': (0, 1),  # Binary feature
+            'user_interest_adventureAndSports': (0, 1),  # Binary feature
+            'user_interest_wellness': (0, 1),  # Binary feature
+            'user_yearly_avg_temp_norm': (0, 80),
+            'user_temp_variance_norm': (0, 100),
+            'max_temp': (0, 120),
+            'min_temp': (-30, 80),
+            'precipitation': (0, 50),
+            'snow': (0, 50),
+            'pop_min': (0, 1000001),
+            'pop_max': (0, 10000000),
+            'northeast': (0, 1),  # Binary feature
+            'midwest': (0, 1),  # Binary feature
+            'south': (0, 1),  # Binary feature
+            'west': (0, 1),  # Binary feature
+            'homeMin': (0, 1000000),
+            'homeMax': (0, 1000000),
+            'rentMin': (0, 5000),
+            'rentMax': (0, 5000),
+            'humidity': (0, 100)
+        }
+
+        for column, (min_val, max_val) in normalization_ranges.items():
+            df_user_features[column] = df_user_features[column].apply(normalize_feature, args=(min_val, max_val))
+
+        # Convert to tensor
+        user_features_tensor = torch.tensor(df_user_features.values, dtype=torch.float).squeeze(0) 
         return user_features_tensor
     else:
         return None
+   
 
 @functions_framework.http
 def update_recommendations(request):
