@@ -94,7 +94,7 @@ class FMModel(nn.Module):
 
 
 # Initialize model
-model = FMModel(user_feature_dim=30, city_feature_dim=20, k=10)  # Adjust dimensions as necessary
+model = FMModel(user_feature_dim=30, city_feature_dim=19, k=10)  # Adjust dimensions as necessary
 
 
 
