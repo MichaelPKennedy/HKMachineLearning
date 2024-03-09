@@ -1,125 +1,102 @@
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
-# normalizing the user preferences
-# `df_user` will be DataFrame containing user preferences
-scaler = StandardScaler()
-columns_to_normalize = ['costOfLivingWeight', 'recreationWeight', 'weatherWeight', 
-                        'sceneryWeight', 'industryWeight', 'publicServicesWeight', 
-                        'crimeWeight', 'airQualityWeight', 'yearly_avg_temp_norm', 
-                        'temp_variance_norm', 'max_temp', 'min_temp', 'precipitation', 
-                        'snow', 'pop_min', 'pop_max']
-df_user[columns_to_normalize] = scaler.fit_transform(df_user[columns_to_normalize])
-
-
-# Convert data into a format suitable for training
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import torch
+import torch.nn as nn
+from torch.optim import Adam
+from dotenv import load_dotenv
+
+load_dotenv()
+
+df_final_dataset = pd.read_csv('final_training_data.csv')
+
 
 class UserCityDataset(Dataset):
     def __init__(self, user_features, city_features, targets):
-        self.user_features = user_features
-        self.city_features = city_features
-        self.targets = targets
+        self.user_features = torch.tensor(user_features, dtype=torch.float)
+        self.city_features = torch.tensor(city_features, dtype=torch.float)
+        # Add an extra dimension to targets to match the model's output shape
+        self.targets = torch.tensor(targets, dtype=torch.float).unsqueeze(-1)
     
     def __len__(self):
         return len(self.targets)
     
     def __getitem__(self, idx):
         return {
-            "user_features": torch.tensor(self.user_features[idx], dtype=torch.float),
-            "city_features": torch.tensor(self.city_features[idx], dtype=torch.float),
-            "targets": torch.tensor(self.targets[idx], dtype=torch.float)
+            "user_features": self.user_features[idx],
+            "city_features": self.city_features[idx],
+            "targets": self.targets[idx]  # targets have shape [batch_size, 1]
         }
 
-# Example usage
-# Assuming `user_features`, `city_features`, and `targets` are your prepared numpy arrays
+
+user_feature_columns = [
+    'costOfLivingWeight', 'recreationWeight', 'weatherWeight', 
+    'sceneryWeight', 'industryWeight', 'publicServicesWeight', 
+    'crimeWeight', 'airQualityWeight', 'job1Salary', 'job2Salary',
+    'user_interest_entertainment', 'user_interest_foodAndDrinks', 
+    'user_interest_historyAndCulture', 'user_interest_beaches', 
+    'user_interest_nature', 'user_interest_winterSports',
+    'user_interest_adventureAndSports', 'user_interest_wellness', 
+    'northeast', 'midwest', 'south', 'west','yearly_avg_temp_norm', 
+    'temp_variance_norm', 'max_temp', 'precipitation', 'snow', 
+    'min_temp', 'pop_min', 'pop_max', 'homeMin', 'homeMax', 
+    'rentMin', 'rentMax', 'humidity']
+
+city_feature_columns  = [
+    'population', 'home_price', 'rent_price', 'average_salary', 
+    'average_hourly','entertainment', 'beaches', 'riversAndLakes', 
+    'mountains', 'adventureAndSports','historyAndCulture', 'nature', 
+    'forests', 'winterSports', 'wellness','astronomy', 
+    'yearly_avg_temp_norm', 'temp_variance_norm', 'avg_humidity'
+]
+
+
+user_features = df_final_dataset[user_feature_columns].values
+city_features = df_final_dataset[city_feature_columns].values
+targets = np.ones(len(df_final_dataset))  # All positive samples
+
 dataset = UserCityDataset(user_features, city_features, targets)
 dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-#FM layer
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
+# Factorization Machine layer
 class FMLayer(nn.Module):
     def __init__(self, n, k):
-        """
-        n: Number of features.
-        k: Number of dimensions for factorization.
-        """
         super(FMLayer, self).__init__()
-        self.n = n  # Number of features
-        self.k = k  # Number of latent factors
-        
-        # Linear part
+        self.n = n  # Total number of features
+        self.k = k  # Number of dimensions for factorization
         self.linear = nn.Linear(n, 1)
-        
-        # Factorization part for pairwise interactions
         self.V = nn.Parameter(torch.randn(n, k))
 
     def forward(self, x):
-        # Linear Terms
         linear_part = self.linear(x)
-        
-        # Pairwise Interactions
-        # Efficient implementation of the pairwise interactions
-        interaction_sum_square = torch.pow(torch.mm(x, self.V), 2)
-        square_interaction_sum = torch.mm(torch.pow(x, 2), torch.pow(self.V, 2))
-        interaction_part = 0.5 * torch.sum(interaction_sum_square - square_interaction_sum, dim=1, keepdim=True)
-        
-        # Combining both parts
-        output = linear_part + interaction_part
-        return output
-
-
+        interaction_part = 0.5 * (torch.pow(x @ self.V, 2) - (x**2) @ (self.V**2)).sum(1, keepdim=True)
+        return linear_part + interaction_part
 
 # Define the Factorization Machine model
 class FMModel(nn.Module):
     def __init__(self, user_feature_dim, city_feature_dim, k):
-        """
-        user_feature_dim: Dimension of the user feature vector.
-        city_feature_dim: Dimension of the city feature vector.
-        k: Number of dimensions for factorization.
-        """
         super(FMModel, self).__init__()
         self.fm_layer = FMLayer(user_feature_dim + city_feature_dim, k)
     
     def forward(self, user_features, city_features):
-        # Combine user and city features
         combined_features = torch.cat((user_features, city_features), dim=1)
-        
-        # Pass combined features through the FM layer
-        output = self.fm_layer(combined_features)
-        return output
+        return self.fm_layer(combined_features)
 
-
-# Initialize model
-model = FMModel(user_feature_dim=30, city_feature_dim=19, k=10)  # Adjust dimensions as necessary
-
-
-
-# Define the Factorization Machine layer, training loop, and optimizer
-from torch.optim import Adam
-
-loss_function = nn.MSELoss()  # Or another appropriate loss function
-optimizer = Adam(model.parameters(), lr=0.001)
+# Initialize model with actual dimensions
+model = FMModel(user_feature_dim=len(user_feature_columns), city_feature_dim=len(city_feature_columns), k=10)
 
 # Training loop
+loss_function = nn.MSELoss()
+optimizer = Adam(model.parameters(), lr=0.001)
+num_epochs = 10
+
 for epoch in range(num_epochs):
     for batch in dataloader:
-        user_features = batch["user_features"]
-        city_features = batch["city_features"]
-        targets = batch["targets"]
-        
-        # Forward pass
-        predictions = model(user_features, city_features)
-        loss = loss_function(predictions, targets)
-        
-        # Backward pass and optimize
         optimizer.zero_grad()
+        predictions = model(batch["user_features"], batch["city_features"])
+        loss = loss_function(predictions, batch["targets"])
         loss.backward()
         optimizer.step()
-    
     print(f"Epoch {epoch}, Loss: {loss.item()}")
 
 
