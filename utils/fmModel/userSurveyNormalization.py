@@ -43,9 +43,41 @@ columns_to_process = [
 imputer = SimpleImputer(strategy="median")
 df_user_surveys[columns_to_process] = imputer.fit_transform(df_user_surveys[columns_to_process])
 
-# Normalize the data
-scaler = MinMaxScaler()
-df_user_surveys[columns_to_process] = scaler.fit_transform(df_user_surveys[columns_to_process])
+
+# Manual normalization for specified columns using predefined ranges
+def manual_min_max_scaling(series, min_val, max_val):
+    return (series - min_val) / (max_val - min_val)
+
+# Apply manual normalization for numerical features with specified ranges
+df_user_surveys['costOfLivingWeight'] = manual_min_max_scaling(df_user_surveys['costOfLivingWeight'], 0, 8)
+df_user_surveys['recreationWeight'] = manual_min_max_scaling(df_user_surveys['recreationWeight'], 0, 8)
+df_user_surveys['weatherWeight'] = manual_min_max_scaling(df_user_surveys['weatherWeight'], 0, 8)
+df_user_surveys['sceneryWeight'] = manual_min_max_scaling(df_user_surveys['sceneryWeight'], 0, 8)
+df_user_surveys['industryWeight'] = manual_min_max_scaling(df_user_surveys['industryWeight'], 0, 8)
+df_user_surveys['publicServicesWeight'] = manual_min_max_scaling(df_user_surveys['publicServicesWeight'], 0, 8)
+df_user_surveys['crimeWeight'] = manual_min_max_scaling(df_user_surveys['crimeWeight'], 0, 8)
+df_user_surveys['airQualityWeight'] = manual_min_max_scaling(df_user_surveys['airQualityWeight'], 0, 8)
+df_user_surveys['job1Salary'] = manual_min_max_scaling(df_user_surveys['job1Salary'], 0, 500000)
+df_user_surveys['job2Salary'] = manual_min_max_scaling(df_user_surveys['job2Salary'], 0, 500000)
+
+# Binary features (0 or 1), no need for scaling
+# 'entertainment', 'foodAndDrinks', 'historyAndCulture', 'beaches', 'nature', 
+# 'winterSports', 'adventureAndSports', 'wellness', 'northeast', 'midwest', 'south', 'west'
+
+# Continue normalization for the remaining features with their ranges
+df_user_surveys['yearly_avg_temp_norm'] = manual_min_max_scaling(df_user_surveys['yearly_avg_temp_norm'], 0, 80)
+df_user_surveys['temp_variance_norm'] = manual_min_max_scaling(df_user_surveys['temp_variance_norm'], 0, 100)
+df_user_surveys['max_temp'] = manual_min_max_scaling(df_user_surveys['max_temp'], 0, 120)
+df_user_surveys['min_temp'] = manual_min_max_scaling(df_user_surveys['min_temp'], -30, 80)
+df_user_surveys['precipitation'] = manual_min_max_scaling(df_user_surveys['precipitation'], 0, 50)
+df_user_surveys['snow'] = manual_min_max_scaling(df_user_surveys['snow'], 0, 50)
+df_user_surveys['pop_min'] = manual_min_max_scaling(df_user_surveys['pop_min'], 0, 1000001)
+df_user_surveys['pop_max'] = manual_min_max_scaling(df_user_surveys['pop_max'], 0, 10000000)
+df_user_surveys['homeMin'] = manual_min_max_scaling(df_user_surveys['homeMin'], 0, 1000000)
+df_user_surveys['homeMax'] = manual_min_max_scaling(df_user_surveys['homeMax'], 0, 1000000)
+df_user_surveys['rentMin'] = manual_min_max_scaling(df_user_surveys['rentMin'], 0, 5000)
+df_user_surveys['rentMax'] = manual_min_max_scaling(df_user_surveys['rentMax'], 0, 5000)
+df_user_surveys['humidity'] = manual_min_max_scaling(df_user_surveys['humidity'], 0, 100)
 
 # Fetch and merge liked cities
 query_liked_cities = "SELECT user_id, city_id FROM UserCities;"

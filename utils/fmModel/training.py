@@ -100,5 +100,7 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch}, Loss: {loss.item()}")
 
 
-#example of how to save model
-#torch.save(model.state_dict(), "fm_model.pth")
+#save model
+model = FMModel(user_feature_dim=len(user_feature_columns), city_feature_dim=len(city_feature_columns), k=10)
+model.load_state_dict(torch.load("fm_model.pth"))
+model.eval()

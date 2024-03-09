@@ -1,0 +1,5 @@
+To get functions-framework in path:
+echo 'export PATH=/Library/Frameworks/Python.framework/Versions/3.11/bin:$PATH' >> ~/.zshrc
+
+source ~/.zshrcthen this gets the function up and running to be tested hosted at 8080:
+functions-framework --target=update_recommendations --port=8080 --debug
