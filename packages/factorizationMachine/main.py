@@ -11,6 +11,10 @@ import torch.nn as nn
 from google.cloud import storage
 from joblib import load
 # import debugpy
+import warnings
+
+# prevent future warnings from cluttering CF logs
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 storage_client = storage.Client()
 
