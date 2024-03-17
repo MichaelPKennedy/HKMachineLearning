@@ -1,6 +1,7 @@
 .env
 *.pkl
 *.csv
+*.pth
 .flake8
 node_modules/
 .DS_Store

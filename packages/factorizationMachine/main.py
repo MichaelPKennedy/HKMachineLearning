@@ -54,7 +54,6 @@ def load_model_and_city_features_from_gcs():
     """Loads the FM model and city features from Google Cloud Storage"""
     model, combined_df = load_model_from_gcs()
 
-    # Extract city features from the DataFrame, assuming 'city_id' is to be excluded
     city_features_df = combined_df
     city_features = city_features_df.drop('city_id', axis=1)
 
@@ -186,16 +185,16 @@ def fetch_and_normalize_user_features(user_id, connection):
             'publicServicesWeight': (0, 8),
             'crimeWeight': (0, 8),
             'airQualityWeight': (0, 8),
-            'job1Salary': (0, 500000),  # Assuming this is the range for salary
-            'job2Salary': (0, 500000),  # Assuming same range as job1Salary
-            'user_interest_entertainment': (0, 1),  # Binary feature
-            'user_interest_foodAndDrinks': (0, 1),  # Binary feature
-            'user_interest_historyAndCulture': (0, 1),  # Binary feature
-            'user_interest_beaches': (0, 1),  # Binary feature
-            'user_interest_nature': (0, 1),  # Binary feature
-            'user_interest_winterSports': (0, 1),  # Binary feature
-            'user_interest_adventureAndSports': (0, 1),  # Binary feature
-            'user_interest_wellness': (0, 1),  # Binary feature
+            'job1Salary': (0, 500000),  
+            'job2Salary': (0, 500000),  
+            'user_interest_entertainment': (0, 1),  
+            'user_interest_foodAndDrinks': (0, 1),  
+            'user_interest_historyAndCulture': (0, 1), 
+            'user_interest_beaches': (0, 1), 
+            'user_interest_nature': (0, 1),  
+            'user_interest_winterSports': (0, 1), 
+            'user_interest_adventureAndSports': (0, 1), 
+            'user_interest_wellness': (0, 1),
             'user_yearly_avg_temp_norm': (0, 80),
             'user_temp_variance_norm': (0, 100),
             'max_temp': (0, 120),
@@ -204,10 +203,10 @@ def fetch_and_normalize_user_features(user_id, connection):
             'snow': (0, 50),
             'pop_min': (0, 1000001),
             'pop_max': (0, 10000000),
-            'northeast': (0, 1),  # Binary feature
-            'midwest': (0, 1),  # Binary feature
-            'south': (0, 1),  # Binary feature
-            'west': (0, 1),  # Binary feature
+            'northeast': (0, 1), 
+            'midwest': (0, 1),
+            'south': (0, 1),
+            'west': (0, 1),
             'homeMin': (0, 1000000),
             'homeMax': (0, 1000000),
             'rentMin': (0, 5000),
@@ -332,7 +331,3 @@ def update_user_recommendations_with_transaction(engine, model, city_features_te
         except SQLAlchemyError as e:
             trans.rollback()
             raise
-
-
-# Further implementation details for fetching user vectors, predicting with the FM model,
-# filtering saved cities, and updating recommendations need to be completed.

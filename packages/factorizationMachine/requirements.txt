@@ -1,0 +1,9 @@
+pandas
+numpy
+sqlalchemy
+python-dotenv
+functions-framework
+torch
+torchvision
+google-cloud-storage
+joblib
