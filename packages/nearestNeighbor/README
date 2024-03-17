@@ -1,6 +1,6 @@
 ## Deploy
 
-gcloud functions deploy update_recommendations --runtime python39 --trigger-http --max-instances=1 --region=us-central1 --timeout=60s --memory=128MB --entry-point=update_recommendations --project=<projectId>
+gcloud functions deploy update_recommendations --runtime python39 --trigger-http --max-instances=1 --region=us-central1 --timeout=60s --memory=256MB --entry-point=update_recommendations --project=<projectId>
 
 ## Test
 

@@ -97,8 +97,6 @@ class FMModel(nn.Module):
         self.fm_layer = FMLayer(user_feature_dim + city_feature_dim, k)
     
     def forward(self, user_features, city_features):
-        print(user_features.shape)
-        print(city_features.shape)
         combined_features = torch.cat((user_features, city_features), dim=1)
         return self.fm_layer(combined_features)
     
@@ -286,6 +284,7 @@ def update_user_recommendations_with_transaction(engine, model, city_features_te
                 WHERE createdAt >= :one_hour_ago
             """)
             users = connection.execute(fetch_users_sql, {'one_hour_ago': one_hour_ago}).fetchall()
+            print(f"Updating recommended locations for {len(users)} users")
             
             for user in users:
                 user_id = user[0]
@@ -307,7 +306,6 @@ def update_user_recommendations_with_transaction(engine, model, city_features_te
                 saved_cities = connection.execute(saved_cities_query, {'user_id': user_id}).fetchall()
                 saved_city_ids = {city[0] for city in saved_cities} 
                 final_recommended_city_ids = [city_id for city_id in recommended_city_ids if city_id not in saved_city_ids][:50]
-                print(final_recommended_city_ids)
 
                 delete_recommendations_sql = text("""
                     DELETE FROM UserRecommendedCities
@@ -328,6 +326,7 @@ def update_user_recommendations_with_transaction(engine, model, city_features_te
                 updated_users.append(user_id)
 
             trans.commit()
+            print("Updated Users", updated_users)
         except SQLAlchemyError as e:
             trans.rollback()
             raise
