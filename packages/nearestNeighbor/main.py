@@ -7,8 +7,6 @@ import functions_framework
 from google.cloud import storage
 from joblib import load
 
-from joblib import load
-
 storage_client = storage.Client()
 
 def download_blob(bucket_name, source_blob_name, destination_file_name):

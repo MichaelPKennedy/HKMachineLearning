@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,25 +10,58 @@ import torch
 import torch.nn as nn
 from google.cloud import storage
 from joblib import load
+# import debugpy
 
-# Assuming you have a function to load your FM model and city features
-def load_model_and_city_features_from_gcs():
-    """Loads the FM model and city features from Google Cloud Storage"""
+storage_client = storage.Client()
+
+def download_blob(bucket_name, source_blob_name, destination_file_name):
+    """Downloads a blob from the bucket."""
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(source_blob_name)
+    blob.download_to_filename(destination_file_name)
+
+def load_model_from_gcs():
+    """Loads the model and dataframe from Google Cloud Storage"""
+    bucket_name = os.getenv('GCS_BUCKET') 
+    model_blob_name = 'fm_model.pth'
+    df_blob_name = 'combined_df.joblib'
+
+    # Temporary paths within the Cloud Function environment
+    model_temp_path = '/tmp/fm_model.pth'
+    df_temp_path = '/tmp/combined_df.joblib'
+
+    download_blob(bucket_name, model_blob_name, model_temp_path)
+    download_blob(bucket_name, df_blob_name, df_temp_path)
+
+    # Instantiate your model
     user_feature_dim = 35
     city_feature_dim = 19
     k = 10
-
-    # Assuming city_features is loaded correctly and is a DataFrame
-    city_features = load('combined_df.joblib')
-
     model = FMModel(user_feature_dim, city_feature_dim, k)
-    model.load_state_dict(torch.load("fm_model.pth"))
-    model.eval()
+
+    # Load the model state dict
+    model_state = torch.load(model_temp_path, map_location=torch.device('cpu'))
+    model.load_state_dict(model_state)
+    model.eval()  # Set the model to evaluation mode
+
+    # Load the dataframe
+    combined_df = load(df_temp_path)
+
+    return model, combined_df
+
+
+def load_model_and_city_features_from_gcs():
+    """Loads the FM model and city features from Google Cloud Storage"""
+    model, combined_df = load_model_from_gcs()
+
+    # Extract city features from the DataFrame, assuming 'city_id' is to be excluded
+    city_features_df = combined_df
+    city_features = city_features_df.drop('city_id', axis=1)
 
     # Convert DataFrame to tensor
     city_features_tensor = torch.tensor(city_features.values, dtype=torch.float)
 
-    return model, city_features_tensor
+    return model, city_features_tensor, city_features_df
 
 
 load_dotenv()
@@ -64,6 +98,8 @@ class FMModel(nn.Module):
         self.fm_layer = FMLayer(user_feature_dim + city_feature_dim, k)
     
     def forward(self, user_features, city_features):
+        print(user_features.shape)
+        print(city_features.shape)
         combined_features = torch.cat((user_features, city_features), dim=1)
         return self.fm_layer(combined_features)
     
@@ -138,7 +174,7 @@ def fetch_and_normalize_user_features(user_id, connection):
 
         # Apply defaults to null values
         for column, default in predefined_defaults.items():
-            df_user_features[column].fillna(default)
+            df_user_features[column].fillna(default, inplace=True)
 
         # Apply normalization directly based on predefined ranges
         normalization_ranges = {
@@ -194,10 +230,15 @@ def update_recommendations(request):
     """
     HTTP Cloud Function to update user recommendations.
     """
-    model, city_features = load_model_and_city_features_from_gcs()
-    
+ 
+    # needed to debug with functions-framework
+    # debugpy.listen(5678)
+    # debugpy.wait_for_client()
+    # print("Debugger attached!")
+
+    model, city_features, city_features_w_city_id = load_model_and_city_features_from_gcs()
     try:
-        update_user_recommendations_with_transaction(engine, model, city_features)
+        update_user_recommendations_with_transaction(engine, model, city_features, city_features_w_city_id)
         return 'Update process completed successfully.', 200
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -234,13 +275,13 @@ def predict_interest(model, user_vector, all_city_features):
     
     return interest_scores
 
-def update_user_recommendations_with_transaction(engine, model, city_features):
+def update_user_recommendations_with_transaction(engine, model, city_features_tensor, city_features_w_city_id):
     one_hour_ago = datetime.now() - timedelta(hours=1)
-    
+    updated_users = []
+
     with engine.connect() as connection:
         trans = connection.begin()
         try:
-            # Fetch users with new surveys in the last hour
             fetch_users_sql = text("""
                 SELECT DISTINCT user_id FROM UserSurveys
                 WHERE createdAt >= :one_hour_ago
@@ -251,26 +292,47 @@ def update_user_recommendations_with_transaction(engine, model, city_features):
                 user_id = user[0]
                 user_vector = fetch_and_normalize_user_features(user_id, connection)
                 if user_vector is None:
-                    continue  # No survey data for this user
+                    continue
 
-                interest_scores = predict_interest(model, user_vector, city_features)
+                interest_scores = predict_interest(model, user_vector, city_features_tensor)
+                # Get indices of top recommended cities
+                top_indices = np.argsort(interest_scores)[-500:] 
+
+                # Map indices to city_ids
+                recommended_city_ids = city_features_w_city_id.iloc[top_indices]['city_id'].values
                 
-                # Fetch already saved cities to exclude from recommendations
-                saved_cities = connection.execute(text("""
+                # Exclude saved cities
+                saved_cities_query = text("""
                     SELECT city_id FROM UserCities WHERE user_id = :user_id
-                """), {'user_id': user_id}).fetchall()
-                saved_city_ids = {city[0] for city in saved_cities}
+                """)
+                saved_cities = connection.execute(saved_cities_query, {'user_id': user_id}).fetchall()
+                saved_city_ids = {city[0] for city in saved_cities} 
+                final_recommended_city_ids = [city_id for city_id in recommended_city_ids if city_id not in saved_city_ids][:50]
+                print(final_recommended_city_ids)
 
-                # Assume city IDs correspond to indices in interest_scores + 1
-                recommended_city_ids = [(user_id, i+1) for i, score in enumerate(interest_scores) if i+1 not in saved_city_ids][:50]  
-                print(f"Updating recommendations for user {user_id}: {recommended_city_ids}")
+                delete_recommendations_sql = text("""
+                    DELETE FROM UserRecommendedCities
+                    WHERE user_id = :user_id
+                    AND premium = 1
+                """)
 
-                # Update the UserRecommendedCities table with new recommendations
-                
+                connection.execute(delete_recommendations_sql, {'user_id':user_id})
+
+                values_to_insert = [{'user_id': user_id, 'city_id': city_id} for city_id in final_recommended_city_ids]
+
+                insert_statement = text("""
+                    INSERT INTO UserRecommendedCities (user_id, city_id, premium)
+                    VALUES (:user_id, :city_id, 1)
+                """)
+
+                connection.execute(insert_statement, values_to_insert)
+                updated_users.append(user_id)
+
             trans.commit()
         except SQLAlchemyError as e:
-            print(f"Transaction failed: {e}")
             trans.rollback()
+            raise
+
 
 # Further implementation details for fetching user vectors, predicting with the FM model,
 # filtering saved cities, and updating recommendations need to be completed.

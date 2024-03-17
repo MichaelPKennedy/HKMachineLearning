@@ -32,7 +32,7 @@ for name, df in dataframes.items():
     if name != 'ML_Demographics': 
         combined_df = combined_df.merge(df, on='city_id', how='inner')
 
-combined_df.to_pickle('AllDataFrames.pkl')
+# combined_df.to_pickle('AllDataFrames.pkl')
 
-# combined_df.to_csv('combined_data.csv', index=False)
+combined_df.to_csv('combined_data.csv', index=False)
 
