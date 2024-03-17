@@ -1,5 +1,12 @@
+## Deploy
+
+gcloud functions deploy fm_recommendations --runtime python39 --trigger-http --max-instances=1 --region=us-central1 --timeout=60s --memory=128MB --entry-point=update_recommendations --project=<projectId>
+
+## Test
+
+functions-framework --target=update_recommendations --port=8080 --debug
+
 To get functions-framework in path:
 echo 'export PATH=/Library/Frameworks/Python.framework/Versions/3.11/bin:$PATH' >> ~/.zshrc
 
 source ~/.zshrcthen this gets the function up and running to be tested hosted at 8080:
-functions-framework --target=update_recommendations --port=8080 --debug
