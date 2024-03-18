@@ -28,6 +28,10 @@ FROM UserSurveys;
 """
 df_user_surveys = pd.read_sql(query_user_surveys, engine)
 
+# TODO: consider averaging all of each individual user's survey entries into one so that it represents a
+# broad look at the user's survey preferencees and also eliminates duplicates for each user/city pair. 
+# Currently, there can be duplicates for each user/city pair due to multiple surveys from each user.  
+
 # Specify columns for imputation and normalization
 columns_to_process = [
     'costOfLivingWeight', 'recreationWeight', 'weatherWeight', 'sceneryWeight',
