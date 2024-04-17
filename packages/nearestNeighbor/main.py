@@ -8,9 +8,6 @@ from google.cloud import storage
 from joblib import load
 # import debugpy
 import warnings
-from sklearn.exceptions import InconsistentVersionWarning
-
-warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 

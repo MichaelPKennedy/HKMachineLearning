@@ -4,5 +4,5 @@ PyMySQL
 python-dotenv
 joblib
 functions_framework
-scikit-learn
+scikit-learn==1.4.1
 google-cloud-storage
