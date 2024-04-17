@@ -80,6 +80,7 @@ def find_similar_cities(saved_city_ids, combined_df, knn_model):
 
 def update_user_recommendations_with_transaction(engine, combined_df, knn):
     one_hour_ago = datetime.now() - timedelta(hours=1)
+    twenty_minutes_ago = datetime.now() - timedelta(minutes=20)
     updated_users = []
 
     with engine.connect() as connection:
@@ -87,11 +88,11 @@ def update_user_recommendations_with_transaction(engine, combined_df, knn):
         try:
             fetch_users_sql = text("""
                 SELECT DISTINCT user_id FROM UserCities
-                WHERE createdAt >= :one_hour_ago
+                WHERE createdAt >= :twenty_minutes_ago
             """)
 
             # Pass parameters in a dictionary
-            users = connection.execute(fetch_users_sql, {'one_hour_ago': one_hour_ago}).fetchall()
+            users = connection.execute(fetch_users_sql, {'twenty_minutes_ago': twenty_minutes_ago}).fetchall()
             print(f"Updating recommended locations for {len(users)} users")
             for user in users:
                 user_id = user[0]
