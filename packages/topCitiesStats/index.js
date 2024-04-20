@@ -53,13 +53,14 @@ exports.updateTopCities = async (req, res) => {
       topMonthlyCities.map((city, index) =>
         connection.execute(
           `INSERT INTO TopMonthlyCities (ranking, city_id, count, month, updatedAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                 ON DUPLICATE KEY UPDATE city_id = ?, count = ?, updatedAt = CURRENT_TIMESTAMP;`,
+                 ON DUPLICATE KEY UPDATE city_id = ?, month= ?, count = ?, updatedAt = CURRENT_TIMESTAMP;`,
           [
             index + 1,
             city.city_id,
             city.city_count,
             currentMonth,
             city.city_id,
+            currentMonth,
             city.city_count,
           ]
         )
