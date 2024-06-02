@@ -1,0 +1,4 @@
+SQLAlchemy
+PyMySQL
+python-dotenv
+functions_framework

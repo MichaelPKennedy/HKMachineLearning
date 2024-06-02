@@ -4,4 +4,4 @@ gcloud functions deploy nearestNeighbor --runtime python39 --trigger-http --max-
 
 ## Test
 
-functions-framework --target=update_recommendations --source=nearestNeighbor.py --port=8080 --debug
+functions-framework --target=update_recommendations --source=main.py --port=8080 --debug

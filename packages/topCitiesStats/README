@@ -1,1 +1,9 @@
 # Hourly job to update top cities stats
+
+## Deploy
+
+gcloud functions deploy topCitiesStats --runtime python39 --trigger-http --max-instances=1 --region=us-central1 --timeout=60s --memory=128MB --entry-point=update_top_cities --project=<projectId>
+
+## Test
+
+functions-framework --target=update_top_cities --source=main.py --port=8080 --debug

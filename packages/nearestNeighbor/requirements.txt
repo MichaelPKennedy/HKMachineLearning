@@ -6,3 +6,4 @@ joblib
 functions_framework
 scikit-learn==1.4.1.post1
 google-cloud-storage
+sendgrid
