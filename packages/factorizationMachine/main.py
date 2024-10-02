@@ -37,7 +37,7 @@ def load_model_from_gcs():
     download_blob(bucket_name, model_blob_name, model_temp_path)
     download_blob(bucket_name, df_blob_name, df_temp_path)
 
-    # Instantiate your model
+    # Instantiate model
     user_feature_dim = 35
     city_feature_dim = 19
     k = 10
